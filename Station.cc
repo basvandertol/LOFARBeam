@@ -150,20 +150,26 @@ Station::fieldArrayFactor(const AntennaField::ConstPtr &field,
             continue;
         }
 
+        // TODO beamformer weights
+
         vector3r_t position = offset + antenna_it->position;
-        real_t phase = k * dot(position, direction) - k0 * dot(position,
-            direction0);
-        complex_t shift = complex_t(cos(phase), sin(phase));
+        real_t phase = k * dot(position, direction);
+        real_t phase0 = k0 * dot(position, direction0);
+
+        complex_t phasor = complex_t(cos(phase), sin(phase));
+        complex_t bfw = complex_t(cos(-phase0), sin(-phase0));
+
+        complex_t s = phasor * bfw;
 
         if(antenna_it->enabled[0])
         {
-            af.factor[0] += shift;
+            af.factor[0] += s;
             ++af.weight[0];
         }
 
         if(antenna_it->enabled[1])
         {
-            af.factor[1] += shift;
+            af.factor[1] += s;
             ++af.weight[1];
         }
     }

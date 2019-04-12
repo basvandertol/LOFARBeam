@@ -67,6 +67,8 @@ raw_array_factor_t TileAntenna::rawArrayFactor(real_t freq,
     for(TileConfig::const_iterator element_it = itsConfig.begin(),
         element_end = itsConfig.end(); element_it != element_end; ++element_it)
     {
+        // TODO beamformer weights
+
         // Compute the effective delay for a plane wave approaching from the
         // direction of interest with respect to the position of element i
         // when beam forming in the reference direction using time delays.
