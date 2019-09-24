@@ -23,15 +23,20 @@
 #include "Station.h"
 #include "MathUtil.h"
 
+
 namespace LOFAR
 {
 namespace StationResponse
 {
 
+Eigen::MatrixXcd projection(Eigen::MatrixXcd &A);
+
+
 Station::Station(const string &name, const vector3r_t &position)
     :   itsName(name),
         itsPosition(position),
-        itsPhaseReference(position)
+        itsPhaseReference(position),
+        itsNrAntennas(0)
 {
 }
 
@@ -58,6 +63,7 @@ const vector3r_t &Station::phaseReference() const
 void Station::addField(const AntennaField::ConstPtr &field)
 {
     itsFields.push_back(field);
+    itsNrAntennas += field->nAntennae();
 }
 
 size_t Station::nFields() const
@@ -150,32 +156,152 @@ Station::fieldArrayFactor(const AntennaField::ConstPtr &field,
             continue;
         }
 
-        // TODO beamformer weights
-
         vector3r_t position = offset + antenna_it->position;
-        real_t phase = k * dot(position, direction);
-        real_t phase0 = k0 * dot(position, direction0);
-
-        complex_t phasor = complex_t(cos(phase), sin(phase));
-        complex_t bfw = complex_t(cos(-phase0), sin(-phase0));
-
-        complex_t s = phasor * bfw;
+        real_t phase = k * dot(position, direction) - k0 * dot(position,
+            direction0);
+        complex_t shift = complex_t(cos(phase), sin(phase));
 
         if(antenna_it->enabled[0])
         {
-            af.factor[0] += s;
+            af.factor[0] += shift;
             ++af.weight[0];
         }
 
         if(antenna_it->enabled[1])
         {
-            af.factor[1] += s;
+            af.factor[1] += shift;
             ++af.weight[1];
         }
     }
 
     return af;
 }
+
+bool Station::setBeamFormer(
+    const Eigen::Vector3d &direction, real_t frequency,
+    const Eigen::MatrixXd &nulling_directions, const Eigen::MatrixXd &nulling_positions, bool near_field)
+{
+    // TODO nulling
+    // Use response vector
+
+    Eigen::VectorXcd response = responseVector(direction, frequency, near_field);
+
+    itsBeamFormerWeights = response;
+
+
+    for(int i = 0; i < nulling_directions.cols(); i++) {
+        Eigen::VectorXd nd = nulling_directions.col(i);
+    }
+
+
+    if (nulling_positions.cols()) {
+        Eigen::MatrixXcd A(response.rows(), nulling_positions.cols());
+        for(int i = 0; i < nulling_positions.cols(); i++) {
+            Eigen::VectorXd np = nulling_positions.col(i);
+            Eigen::MatrixXcd nulling_response = responseVector(np, frequency, true);
+            A.col(i) = nulling_response;
+        }
+        itsBeamFormerWeights = projection(A) * itsBeamFormerWeights;
+    }
+
+    itsBeamFormerWeights /= itsBeamFormerWeights.dot(response);
+
+    std::cout << 1.0/itsBeamFormerWeights.squaredNorm() << std::endl;
+
+    return true;
+}
+
+Eigen::VectorXcd Station::responseVector(const Eigen::Vector3d &direction, real_t frequency, bool near_field) const
+{
+    Eigen::VectorXcd response(itsNrAntennas);
+
+    real_t k = Constants::_2pi * frequency / Constants::c;
+
+    int i = 0;
+    if (near_field)
+    {
+        for(FieldList::const_iterator field_it = beginFields(),
+            field_end = endFields(); field_it != field_end; ++field_it)  {
+            Eigen::Vector3d offset((*field_it)->position().data());
+
+            for(AntennaField::AntennaList::const_iterator antenna_it = (*field_it)->beginAntennae(),
+                antenna_end = (*field_it)->endAntennae(); antenna_it != antenna_end;
+                ++antenna_it) {
+                Eigen::Vector3d path = offset + Eigen::Vector3d(antenna_it->position.data()) - direction;
+                real_t phase = k * path.norm();
+                complex_t phasor = complex_t(cos(-phase), sin(-phase));
+                response[i++] = antenna_it->enabled[0] ? phasor : 0.0;
+            }
+        }
+    }
+    else
+    {
+        for(FieldList::const_iterator field_it = beginFields(),
+            field_end = endFields(); field_it != field_end; ++field_it)
+        {
+            vector3r_t offset = (*field_it)->position() - phaseReference();
+
+            for(AntennaField::AntennaList::const_iterator antenna_it = (*field_it)->beginAntennae(),
+                antenna_end = (*field_it)->endAntennae(); antenna_it != antenna_end;
+                ++antenna_it)
+            {
+                vector3r_t position_ = offset + antenna_it->position;
+                Eigen::Vector3d position(position_.data());
+
+                real_t phase = k * position.dot(direction);
+                complex_t phasor = complex_t(cos(-phase), sin(-phase));
+                response[i++] = antenna_it->enabled[0] ? phasor : 0.0;
+            }
+        }
+    }
+
+    return response;
+}
+
+
+matrix22c_t Station::responseBeamFormer(const Eigen::Vector3d &direction, real_t frequency, bool near_field) const
+{
+    complex_t result = 0.0;
+
+    Eigen::VectorXcd response = responseVector(direction, frequency, near_field);
+
+    result = itsBeamFormerWeights.dot(response);
+
+    return {result, 0, 0, result};
+}
+
+
+template <class MatT>
+Eigen::Matrix<typename MatT::Scalar, MatT::ColsAtCompileTime, MatT::RowsAtCompileTime>
+pseudoinverse(const MatT &mat, typename MatT::Scalar tolerance = typename MatT::Scalar{1e-4}) // choose appropriately
+{
+    typedef typename MatT::Scalar Scalar;
+    auto svd = mat.jacobiSvd(Eigen::ComputeFullU | Eigen::ComputeFullV);
+    const auto &singularValues = svd.singularValues();
+    Eigen::Matrix<Scalar, MatT::ColsAtCompileTime, MatT::RowsAtCompileTime> singularValuesInv(mat.cols(), mat.rows());
+    singularValuesInv.setZero();
+    for (unsigned int i = 0; i < singularValues.size(); ++i) {
+        if (singularValues(i) > tolerance)
+        {
+            singularValuesInv(i, i) = Scalar{1} / singularValues(i);
+        }
+        else
+        {
+            singularValuesInv(i, i) = Scalar{0};
+        }
+    }
+    return svd.matrixV() * singularValuesInv * svd.matrixU().adjoint();
+}
+
+Eigen::MatrixXcd projection(Eigen::MatrixXcd &A)
+{
+    int n = A.rows();
+    Eigen::MatrixXcd P;
+    P = Eigen::MatrixXcd::Identity(n,n) - A * pseudoinverse((A.adjoint() * A), 1e-3) * A.adjoint();
+    return P;
+}
+
+
 
 } //# namespace StationResponse
 } //# namespace LOFAR

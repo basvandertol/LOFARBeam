@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.8)
+cmake_minimum_required(VERSION 3.0)
 
 project(lofarbeam)
 
@@ -6,6 +6,11 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/CMake)
 
 set(CASACORE_MAKE_REQUIRED_EXTERNALS_OPTIONAL TRUE)
 find_package(Casacore REQUIRED COMPONENTS casa ms tables measures)
+
+find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+
+find_package(PythonLibs REQUIRED)
+
 include_directories(${CASACORE_INCLUDE_DIR})
 
 add_compile_options(-std=c++11 -Wall -DNDEBUG)
@@ -34,7 +39,7 @@ set_target_properties(elementresponse PROPERTIES VERSION 3)
 
 # The elementresponse lib does not require casacore, so
 # linking casacore only to stationresponse is enough.
-target_link_libraries(stationresponse ${CASACORE_LIBRARIES})
+target_link_libraries(stationresponse ${CASACORE_LIBRARIES} Eigen3::Eigen)
 
 install (TARGETS stationresponse DESTINATION lib)
 install (TARGETS elementresponse DESTINATION lib)
@@ -68,11 +73,12 @@ endif(DOXYGEN_FOUND)
 find_package (Python COMPONENTS Development)
 find_package(Boost COMPONENTS python)
 find_package(Casacore REQUIRED COMPONENTS python)
+find_package(NumPy REQUIRED)
 
 if(Boost_PYTHON_FOUND)
-    add_library(_stationresponse MODULE pystationresponse.cc)
+    add_library(_stationresponse MODULE pystationresponse.cc eigen_numpy.cc)
     set_target_properties(_stationresponse PROPERTIES PREFIX "")
-    target_include_directories(_stationresponse PRIVATE ${PYTHON_INCLUDE_DIR} ${Boost_INCLUDE_DIRS})
+    target_include_directories(_stationresponse PRIVATE ${PYTHON_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR} ${NUMPY_INCLUDE_DIRS})
     target_link_libraries(_stationresponse stationresponse ${CASA_PYTHON_LIBRARY} ${Boost_PYTHON_LIBRARY})
 endif(Boost_PYTHON_FOUND)
 

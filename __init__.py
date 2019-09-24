@@ -20,6 +20,7 @@
 # $Id: __init__.py 33126 2015-12-11 19:09:42Z dijkema $
 
 import _stationresponse
+import numpy as np
 
 class stationresponse(object):
     """
@@ -208,3 +209,18 @@ class stationresponse(object):
           ITRF direction of the tile beamformer (numpy array with 3 floats)
         """
         return self._response.evaluate4(time, station, freq, direction, station0, tile0)
+
+    def getResponseVector(self, station, direction, near_field = False):
+
+        return self._response.getResponseVector(station, direction, near_field)
+
+    def setBeamFormer(self, station, direction, null_directions = [], null_positions = []):
+        return self._response.setBeamFormer(station, direction, np.ascontiguousarray(null_directions), np.ascontiguousarray(null_positions))
+
+    def evaluateBeamFormer(self, station, direction, near_field = False):
+        return self._response.responseBeamFormer(station, direction, near_field)
+
+
+
+
+

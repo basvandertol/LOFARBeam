@@ -23,6 +23,7 @@
 #include "ITRFDirection.h"
 #include "LofarMetaDataUtil.h"
 #include "Station.h"
+#include "eigen_numpy.h"
 
 #include <casacore/casa/Arrays/Array.h>
 #include <casacore/casa/Arrays/Matrix.h>
@@ -43,6 +44,9 @@
 
 #include <boost/python.hpp>
 #include <boost/python/args.hpp>
+
+#include <Eigen/Dense>
+
 
 using namespace casa;
 using namespace boost::python;
@@ -186,7 +190,11 @@ namespace BBS
     ValueHolder evaluate1(double time, int station);
     ValueHolder evaluate2(double time, int station, int channel);
     ValueHolder evaluate3(double time, int station, double freq);
-    ValueHolder evaluate4(double time, int station, double freq, const ValueHolder& direction, const ValueHolder& station0, const ValueHolder& tile0); 
+    ValueHolder evaluate4(double time, int station, double freq, const ValueHolder& direction, const ValueHolder& station0, const ValueHolder& tile0);
+    ValueHolder setBeamFormer(int station, const Eigen::Vector3d& direction, const Eigen::MatrixXd& nulling_directions, const Eigen::MatrixXd& nulling_positions);
+    ValueHolder responseBeamFormer(int station, const Eigen::Vector3d& direction, bool near_field);
+
+    Eigen::VectorXcd getResponseVector(int station, const Eigen::Vector3d &direction, bool near_field = false);
 
   private:
     Matrix<DComplex> evaluate_itrf(
@@ -421,6 +429,30 @@ namespace BBS
                                      direction, station0, tile0));
   }
 
+  Eigen::VectorXcd PyStationResponse::getResponseVector(int station, const Eigen::Vector3d &direction, bool near_field)
+  {
+      double freq0 = itsRefFreq(0);
+      Eigen::VectorXcd result = itsStations(station)->responseVector(direction, freq0, near_field);
+      return result;
+  }
+
+  ValueHolder PyStationResponse::setBeamFormer(int station, const Eigen::Vector3d& direction, const Eigen::MatrixXd& nulling_directions, const Eigen::MatrixXd& nulling_positions)
+  {
+    return ValueHolder(itsStations(station)->setBeamFormer(direction, itsRefFreq(0), nulling_directions, nulling_positions));
+  }
+
+  ValueHolder PyStationResponse::responseBeamFormer(int station, const Eigen::Vector3d& direction, bool near_field)
+  {
+    Matrix<DComplex> result(2, 2, 0.0);
+    matrix22c_t response =  itsStations(station)->responseBeamFormer(direction, itsRefFreq(0), near_field);
+    result(0, 0) = response[0][0];
+    result(1, 0) = response[0][1];
+    result(0, 1) = response[1][0];
+    result(1, 1) = response[1][1];
+
+    return ValueHolder(result);
+  }
+
   Cube<DComplex> PyStationResponse::evaluate(const Station::ConstPtr &station,
     double time, const Vector<Double> &freq, const Vector<Double> &freq0) const
   {
@@ -642,6 +674,14 @@ namespace BBS
       (boost::python::arg("time"), boost::python::arg("station"),
          boost::python::arg("freq"), boost::python::arg("direction"),
          boost::python::arg("station0"), boost::python::arg("tile0")))
+      .def ("getResponseVector", &PyStationResponse::getResponseVector,
+      (boost::python::arg("station"), boost::python::arg("direction"),
+          boost::python::arg("near_field")))
+      .def ("setBeamFormer", &PyStationResponse::setBeamFormer,
+      (boost::python::arg("station"), boost::python::arg("direction"),
+         boost::python::arg("nulling_directions"), boost::python::arg("nulling_positions")))
+      .def ("responseBeamFormer", &PyStationResponse::responseBeamFormer,
+      (boost::python::arg("station"), boost::python::arg("direction"), boost::python::arg("near_field")))
       ;
   }
 
@@ -753,6 +793,7 @@ BOOST_PYTHON_MODULE(_stationresponse)
   casacore::python::register_convert_excp();
   casacore::python::register_convert_basicdata();
   casacore::python::register_convert_casa_valueholder();
+  SetupEigenConverters();
 
   LOFAR::BBS::pystationresponse();
 }

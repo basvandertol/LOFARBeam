@@ -31,6 +31,7 @@
 
 #include <memory>
 #include <vector>
+#include <Eigen/Dense>
 
 namespace LOFAR
 {
@@ -46,7 +47,6 @@ public:
     typedef std::shared_ptr<Station>             Ptr;
     typedef std::shared_ptr<const Station>       ConstPtr;
     typedef std::vector<AntennaField::ConstPtr>  FieldList;
-
     /*!
      *  \brief Construct a new Station instance.
      *
@@ -189,6 +189,15 @@ public:
         real_t freq0, const vector3r_t &station0, const vector3r_t &tile0)
         const;
 
+    bool setBeamFormer(
+        const Eigen::Vector3d &direction, real_t frequency,
+        const Eigen::MatrixXd &nulling_directions, const Eigen::MatrixXd &nulling_positions, bool near_field = false);
+
+    Eigen::VectorXcd responseVector(const Eigen::Vector3d &direction, real_t frequency, bool near_field = false) const;
+
+    matrix22c_t responseBeamFormer(const Eigen::Vector3d &direction, real_t freq, bool near_field = false) const;
+
+
     /*!
      *  \name Convenience member functions
      *  These member functions perform the same function as the corresponding
@@ -302,10 +311,12 @@ private:
         const vector3r_t &position0, const vector3r_t &direction0) const;
 
 private:
-    string      itsName;
-    vector3r_t  itsPosition;
-    vector3r_t  itsPhaseReference;
-    FieldList   itsFields;
+    string            itsName;
+    vector3r_t        itsPosition;
+    vector3r_t        itsPhaseReference;
+    FieldList         itsFields;
+    int               itsNrAntennas;
+    Eigen::VectorXcd  itsBeamFormerWeights;
 };
 
 // @}
