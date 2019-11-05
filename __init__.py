@@ -217,6 +217,9 @@ class stationresponse(object):
     def setBeamFormer(self, station, direction, null_directions = [], null_positions = []):
         return self._response.setBeamFormer(station, direction, np.ascontiguousarray(null_directions), np.ascontiguousarray(null_positions))
 
+    def setBeamFormerWeights(self, station, weights):
+        return self._response.setBeamFormerWeights(station, np.ascontiguousarray(weights))
+
     def evaluateBeamFormer(self, station, direction, near_field = False):
         return self._response.responseBeamFormer(station, direction, near_field)
 
