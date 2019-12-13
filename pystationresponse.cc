@@ -48,7 +48,7 @@
 #include <Eigen/Dense>
 
 
-using namespace casa;
+using namespace casacore;
 using namespace boost::python;
 using namespace LOFAR::StationResponse;
 
@@ -192,6 +192,7 @@ namespace BBS
     ValueHolder evaluate3(double time, int station, double freq);
     ValueHolder evaluate4(double time, int station, double freq, const ValueHolder& direction, const ValueHolder& station0, const ValueHolder& tile0);
     ValueHolder setBeamFormer(int station, const Eigen::Vector3d& direction, const Eigen::MatrixXd& nulling_directions, const Eigen::MatrixXd& nulling_positions);
+    ValueHolder setBeamFormerWeights(int station, const Eigen::VectorXcd& weights);
     ValueHolder responseBeamFormer(int station, const Eigen::Vector3d& direction, bool near_field);
 
     Eigen::VectorXcd getResponseVector(int station, const Eigen::Vector3d &direction, bool near_field = false);
@@ -441,6 +442,11 @@ namespace BBS
     return ValueHolder(itsStations(station)->setBeamFormer(direction, itsRefFreq(0), nulling_directions, nulling_positions));
   }
 
+  ValueHolder PyStationResponse::setBeamFormerWeights(int station, const Eigen::VectorXcd& weights)
+  {
+    return ValueHolder(itsStations(station)->setBeamFormerWeights(weights));
+  }
+
   ValueHolder PyStationResponse::responseBeamFormer(int station, const Eigen::Vector3d& direction, bool near_field)
   {
     Matrix<DComplex> result(2, 2, 0.0);
@@ -680,6 +686,8 @@ namespace BBS
       .def ("setBeamFormer", &PyStationResponse::setBeamFormer,
       (boost::python::arg("station"), boost::python::arg("direction"),
          boost::python::arg("nulling_directions"), boost::python::arg("nulling_positions")))
+      .def ("setBeamFormerWeights", &PyStationResponse::setBeamFormerWeights,
+      (boost::python::arg("station"), boost::python::arg("weights")))
       .def ("responseBeamFormer", &PyStationResponse::responseBeamFormer,
       (boost::python::arg("station"), boost::python::arg("direction"), boost::python::arg("near_field")))
       ;

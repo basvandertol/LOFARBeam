@@ -193,6 +193,9 @@ public:
         const Eigen::Vector3d &direction, real_t frequency,
         const Eigen::MatrixXd &nulling_directions, const Eigen::MatrixXd &nulling_positions, bool near_field = false);
 
+    bool setBeamFormerWeights(
+        const Eigen::VectorXcd &weights) {itsBeamFormerWeights = weights;};
+
     Eigen::VectorXcd responseVector(const Eigen::Vector3d &direction, real_t frequency, bool near_field = false) const;
 
     matrix22c_t responseBeamFormer(const Eigen::Vector3d &direction, real_t freq, bool near_field = false) const;
