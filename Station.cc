@@ -188,13 +188,7 @@ bool Station::setBeamFormer(
 
     itsBeamFormerWeights = response;
 
-
-    for(int i = 0; i < nulling_directions.cols(); i++) {
-        Eigen::VectorXd nd = nulling_directions.col(i);
-    }
-
-
-    if (nulling_positions.cols()) {
+    if (nulling_positions.cols() > 0) {
         Eigen::MatrixXcd A(response.rows(), nulling_positions.cols());
         for(int i = 0; i < nulling_positions.cols(); i++) {
             Eigen::VectorXd np = nulling_positions.col(i);
