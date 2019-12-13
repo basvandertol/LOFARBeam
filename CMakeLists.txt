@@ -9,8 +9,9 @@ find_package(Casacore REQUIRED COMPONENTS casa ms tables measures)
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
-find_package(PythonLibs REQUIRED)
+#find_package(PythonLibs27 REQUIRED)
 
+find_package (Python2 COMPONENTS Development NumPy)
 include_directories(${CASACORE_INCLUDE_DIR})
 
 add_compile_options(-std=c++11 -Wall -DNDEBUG)
@@ -70,18 +71,17 @@ elseif(DOXYGEN_FOUND)
 
 endif(DOXYGEN_FOUND)
 
-find_package (Python COMPONENTS Development)
-find_package(Boost COMPONENTS python)
-find_package(Casacore REQUIRED COMPONENTS python)
-find_package(NumPy REQUIRED)
 
-if(Boost_PYTHON_FOUND)
+find_package(Boost COMPONENTS python27)
+find_package(Casacore REQUIRED COMPONENTS python)
+
+#if(Boost_PYTHON27_FOUND)
     add_library(_stationresponse MODULE pystationresponse.cc eigen_numpy.cc)
     set_target_properties(_stationresponse PROPERTIES PREFIX "")
-    target_include_directories(_stationresponse PRIVATE ${PYTHON_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR} ${NUMPY_INCLUDE_DIRS})
-    target_link_libraries(_stationresponse stationresponse ${CASA_PYTHON_LIBRARY} ${Boost_PYTHON_LIBRARY})
-    install(TARGETS _stationresponse DESTINATION ${PYTHON_INSTALL_DIR}/lofar/stationresponse)
-    install(FILES __init__.py DESTINATION ${PYTHON_INSTALL_DIR}/lofar/stationresponse)
+    target_include_directories(_stationresponse PRIVATE  ${Boost_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
+    target_link_libraries(_stationresponse stationresponse Python2::Python Python2::NumPy ${CASA_PYTHON_LIBRARY} ${Boost_PYTHON_LIBRARY})
+    install(TARGETS _stationresponse DESTINATION ${Python2_SITEARCH}/lofar/stationresponse)
+    install(FILES __init__.py DESTINATION ${Python2_SITEARCH}/lofar/stationresponse)
 
-endif(Boost_PYTHON_FOUND)
+#endif(Boost_PYTHON_FOUND)
 
